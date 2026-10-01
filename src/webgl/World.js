@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as S from './shaders.js';
+import { Journey } from './Journey.js';
 
 const COLORS = {
   zenith: new THREE.Color('#2f86c4'),
@@ -215,6 +216,7 @@ export class World {
     this.camera.aspect = w / h;
     this.camera.fov = w / h < 1 ? 70 : 55;
     this.camera.updateProjectionMatrix();
+    this.journey?.resize(w / h);
     const px = this.renderer.getPixelRatio();
     this.currentsMat.uniforms.uPixel.value = px;
     this.dustMat.uniforms.uPixel.value = px;
@@ -225,10 +227,28 @@ export class World {
     return THREE.MathUtils.clamp((SURFACE_Y - this.state.y) / (SURFACE_Y - DEEP_Y), 0, 1);
   }
 
+  openJourney(i) {
+    this.closeJourney();
+    this.journey = new Journey(this.renderer, this.shared, i);
+    this.journey.resize(window.innerWidth / window.innerHeight);
+    this.renderer.compile(this.journey.scene, this.journey.camera);
+    return this.journey;
+  }
+
+  closeJourney() {
+    this.journey?.dispose();
+    this.journey = null;
+  }
+
   render() {
     this.timer.update();
     const t = this.timer.getElapsed();
     this.shared.uTime.value = t;
+    if (this.journey) {
+      this.journey.update(t, this.pointer);
+      this.renderer.render(this.journey.scene, this.journey.camera);
+      return;
+    }
     const s = this.state;
 
     this.look.lerp(this.pointer, 0.04);

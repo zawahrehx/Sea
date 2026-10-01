@@ -239,6 +239,41 @@ h1, h2, h3, h4, p { margin: 0; font-weight: 500; }
 .hint svg { display: block; width: 32px; height: 32px; margin: 0 auto 6px; fill: none; stroke: var(--ice); }
 .hint svg path { fill: var(--ice); stroke: none; }
 
+/* ---------- Single journey ---------- */
+.view--journey { justify-content: center; }
+.jintro { display: flex; flex-direction: column; align-items: center; }
+.jintro__eyebrow { font: 500 12px var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--aqua); margin-bottom: 18px; }
+.jintro__eyebrow b { font-weight: 500; color: var(--ice); }
+.jintro__title { font: 500 clamp(44px, 8vw, 118px)/.92 var(--title); text-transform: uppercase; letter-spacing: .02em; color: var(--aqua); }
+.jintro__title span { display: block; }
+.jintro__title .outline { -webkit-text-stroke-color: var(--ice); }
+.jintro__title span:last-child { font-weight: 600; }
+.jintro__tag { margin: 22px 0 30px; font: 500 11px var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ice); }
+
+.chapter {
+  --c: 14px; position: absolute; left: var(--gutter); top: 50%; translate: 0 -50%; width: min(380px, calc(100% - 2 * var(--gutter)));
+  padding: 26px 26px 22px; text-align: left; background: rgba(3, 26, 46, .62); backdrop-filter: blur(6px);
+  border-left: 1px solid var(--line); visibility: hidden;
+}
+.chapter__count { font: 500 9px var(--body); letter-spacing: .24em; text-transform: uppercase; color: var(--aqua); margin-bottom: 12px; }
+.chapter__count b { color: var(--ice); font-weight: 500; }
+.chapter__title { font: 500 clamp(26px, 2.6vw, 38px)/1 var(--title); text-transform: uppercase; color: var(--aqua); margin-bottom: 12px; text-wrap: balance; }
+.chapter__text { font: 400 14px/1.6 var(--body); color: var(--ice); }
+.chapter__nav { display: flex; gap: 10px; margin-top: 20px; }
+.chapter__bar { height: 1px; background: rgba(143, 227, 255, .2); margin-top: 18px; }
+.chapter__bar i { display: block; height: 100%; background: var(--aqua); transform-origin: left; transform: scaleX(.25); transition: transform .8s var(--ease); }
+.chapter .btn-cut[disabled] { opacity: .35; pointer-events: none; }
+
+.spot { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 10px; visibility: hidden; opacity: 0; }
+.spot__ring { position: relative; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--ice); }
+.spot__ring::before { content: ''; position: absolute; inset: 9px; border-radius: 50%; background: var(--aqua); }
+.spot__ring::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1px solid var(--aqua); animation: ping 2s var(--ease) infinite; }
+@keyframes ping { from { transform: scale(1); opacity: .9; } to { transform: scale(2.4); opacity: 0; } }
+.spot__label { font: 500 10px var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--ice); white-space: nowrap; padding: 6px 10px; background: rgba(3, 26, 46, .6); }
+.spot:hover .spot__label { color: var(--abyss); background: var(--aqua); }
+
+.jexit { position: absolute; top: 112px; left: var(--gutter); visibility: hidden; }
+
 /* ---------- Modal ---------- */
 .modal { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; padding: 110px var(--gutter) 40px; visibility: hidden; }
 .modal::before { content: ''; position: absolute; inset: 0; background: rgba(2, 22, 39, .55); backdrop-filter: blur(6px); }
@@ -306,6 +341,9 @@ h1, h2, h3, h4, p { margin: 0; font-weight: 500; }
   .journey h3 br { display: none; }
   .view--journeys { justify-content: flex-end; padding-bottom: 160px; }
   .hint { display: none; }
+  .chapter { top: auto; bottom: 120px; translate: none; padding: 18px; }
+  .chapter__text { font-size: 13px; }
+  .jexit { top: 84px; }
   .modal { padding: 80px 12px 12px; }
   .modal__panel { padding: 70px 22px 24px; height: 100%; }
   .modal__label { left: 22px; }

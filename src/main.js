@@ -1,4 +1,5 @@
 import gsap from 'gsap';
+import * as THREE from 'three';
 import { World, SURFACE_Y, DEEP_Y } from './webgl/World.js';
 import { Sound } from './ui/audio.js';
 import { scramble, bindScrambleHover } from './ui/scramble.js';
@@ -55,6 +56,14 @@ gsap.ticker.add((time) => {
 });
 
 function updateHud() {
+  if (world.journey) {
+    const j = journeys[world.journey.index];
+    const d = j.depth + Math.max(0, chapter) * 2 + Math.sin(performance.now() * 0.0004) * 0.4;
+    $('#hud-depth').textContent = `${Math.round(d)}m`;
+    $('#hud-temp').textContent = `${j.temp}°c`;
+    sound.setDepth(0.45);
+    return;
+  }
   const d = world.depth;
   $('#hud-depth').textContent = `${Math.round(Math.max(0, SURFACE_Y - world.state.y) * 0.75)}m`;
   $('#hud-temp').textContent = `${Math.round(24 - d * 9)}°c`;
@@ -252,12 +261,17 @@ function surface() {
     .add(enterSurface, 3.6);
 }
 
-$('#brand').addEventListener('click', (e) => { e.preventDefault(); surface(); });
+$('#brand').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (view === 'journey') exitJourney();
+  else surface();
+});
 $('[data-go="journeys"]').addEventListener('click', (e) => {
   e.preventDefault();
   closeMenu();
   closeModal();
-  dive();
+  if (view === 'journey') exitJourney();
+  else dive();
 });
 
 /* ---------- Modal ---------- */
@@ -295,15 +309,7 @@ $('#modal-close').addEventListener('click', closeModal);
 modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
-$$('[data-open]').forEach((b) =>
-  b.addEventListener('click', () => {
-    const i = +b.dataset.open;
-    discovered.add(i);
-    const pct = Math.round((discovered.size / journeys.length) * 100);
-    scramble($('#hud-progress'), `${pct}%`, 0.6);
-    openModal(journeys[i]);
-  }),
-);
+$$('[data-open]').forEach((b) => b.addEventListener('click', () => startJourney(+b.dataset.open)));
 $$('[data-modal]').forEach((a) =>
   a.addEventListener('click', (e) => {
     e.preventDefault();
@@ -358,6 +364,158 @@ function closeMenu() {
 $('#menu-toggle').addEventListener('click', () => {
   const open = $('#nav').classList.toggle('open');
   $('#menu-toggle').classList.toggle('open', open);
+});
+
+/* ---------- Single journey ---------- */
+let chapter = -1;
+let busy = false;
+const spot = $('#spot');
+const spotPos = new THREE.Vector3();
+let spotOn = false;
+
+function veil(fn) {
+  return gsap.timeline()
+    .to('#veil', { opacity: 1, duration: 0.9, ease: 'power2.in' })
+    .add(fn)
+    .to('#veil', { opacity: 0, duration: 1.2, ease: 'power2.out' }, '+=0.15');
+}
+
+function startJourney(i) {
+  if (view !== 'journeys') return;
+  view = 'entering';
+  discovered.add(i);
+  scramble($('#hud-progress'), `${Math.round((discovered.size / journeys.length) * 100)}%`, 0.6);
+  const hub = $('#view-journeys');
+  hub.classList.remove('is-active');
+  veil(() => {
+    gsap.set(hub, { visibility: 'hidden' });
+    world.openJourney(i);
+    const j = journeys[i];
+    chapter = -1;
+    $('#ji-place').textContent = j.place;
+    $('#ji-a').textContent = j.intro[0];
+    $('#ji-b').textContent = j.intro[1];
+    scramble($('#hud-loc'), j.place, 0.8);
+    const v = $('#view-journey');
+    gsap.set(v, { visibility: 'visible', opacity: 1 });
+    gsap.set('#jintro', { autoAlpha: 1 });
+    gsap.set('#chapter', { autoAlpha: 0 });
+    v.classList.add('is-active');
+    view = 'journey';
+    gsap.timeline({ delay: 0.6 })
+      .from('.jintro__eyebrow', { opacity: 0, y: 10, duration: 0.8 })
+      .from('.jintro__title span', { opacity: 0, yPercent: 40, duration: 1.1, stagger: 0.12, ease: 'expo.out' }, 0.1)
+      .from('.jintro__tag, #journey-start', { opacity: 0, duration: 0.8, stagger: 0.1 }, 0.6)
+      .fromTo('#journey-exit', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, 0.8);
+  });
+}
+
+function goChapter(c) {
+  const j = world.journey && journeys[world.journey.index];
+  if (!j || busy || c < 0 || c >= j.chapters.length || c === chapter) return;
+  busy = true;
+  const first = chapter < 0;
+  chapter = c;
+  spotOn = false;
+  gsap.to(spot, { autoAlpha: 0, duration: 0.3 });
+  const panel = $('#chapter');
+  const tl = gsap.timeline({ onComplete: () => { busy = false; } });
+  if (first) tl.to('#jintro', { autoAlpha: 0, y: -20, duration: 0.7 });
+  else tl.to(panel, { autoAlpha: 0, x: -16, duration: 0.5 });
+
+  const pose = world.journey.poses[c + 1];
+  tl.to(world.journey.pose, {
+    px: pose.cam[0], py: pose.cam[1], pz: pose.cam[2],
+    tx: pose.tgt[0], ty: pose.tgt[1], tz: pose.tgt[2],
+    duration: 3.2, ease: 'power2.inOut',
+  }, first ? 0.2 : 0.1);
+
+  tl.add(() => {
+    const ch = j.chapters[c];
+    $('#ch-num').textContent = String(c + 1).padStart(2, '0');
+    $('#ch-title').textContent = ch.title;
+    $('#ch-text').textContent = ch.text;
+    $('#ch-prev').disabled = c === 0;
+    $('#ch-next-label').textContent = c === j.chapters.length - 1 ? 'Finish' : 'Next';
+    $('#ch-bar').style.transform = `scaleX(${(c + 1) / j.chapters.length})`;
+    $('#spot-label').textContent = ch.spot.label;
+    spotPos.copy(world.journey.hotspot(c + 1));
+  }, first ? 0.7 : 0.5);
+  tl.fromTo(panel, { autoAlpha: 0, x: -16 }, { autoAlpha: 1, x: 0, duration: 0.8, ease: 'expo.out' }, '-=1.2');
+  tl.add(() => {
+    scramble($('#ch-title'), j.chapters[c].title, 0.7);
+    spotOn = true;
+    gsap.to(spot, { autoAlpha: 1, duration: 0.6 });
+  }, '-=0.9');
+}
+
+function step(dir) {
+  if (view !== 'journey' || chapter < 0 || modal.getAttribute('aria-hidden') === 'false') return;
+  const total = journeys[world.journey.index].chapters.length;
+  if (dir > 0 && chapter === total - 1) exitJourney();
+  else goChapter(chapter + dir);
+}
+
+function exitJourney() {
+  if (view !== 'journey') return;
+  view = 'leaving';
+  closeModal();
+  spotOn = false;
+  const v = $('#view-journey');
+  v.classList.remove('is-active');
+  veil(() => {
+    gsap.set([v, spot, '#journey-exit', '#chapter'], { autoAlpha: 0 });
+    gsap.set(v, { visibility: 'hidden' });
+    world.closeJourney();
+    chapter = -1;
+    busy = false;
+    scramble($('#hud-loc'), 'South Pacific', 0.8);
+    const hub = $('#view-journeys');
+    gsap.set(hub, { visibility: 'visible', opacity: 1 });
+    hub.classList.add('is-active');
+    view = 'journeys';
+  });
+}
+
+$('#journey-start').addEventListener('click', () => goChapter(0));
+$('#ch-next').addEventListener('click', () => step(1));
+$('#ch-prev').addEventListener('click', () => step(-1));
+$('#journey-exit').addEventListener('click', exitJourney);
+spot.addEventListener('click', () => {
+  const j = journeys[world.journey.index];
+  const s = j.chapters[chapter].spot;
+  openModal({ code: j.code, eyebrow: s.label, title: s.title, copy: s.copy, stats: s.stats });
+});
+
+let wheelLock = 0;
+addEventListener('wheel', (e) => {
+  if (Math.abs(e.deltaY) < 12 || performance.now() < wheelLock) return;
+  if (view !== 'journey' || chapter < 0 || busy) return;
+  wheelLock = performance.now() + 1400;
+  step(Math.sign(e.deltaY));
+}, { passive: true });
+let touchY = null;
+addEventListener('touchstart', (e) => { touchY = e.touches[0].clientY; }, { passive: true });
+addEventListener('touchend', (e) => {
+  if (touchY === null) return;
+  const dy = touchY - e.changedTouches[0].clientY;
+  touchY = null;
+  if (Math.abs(dy) > 50 && !e.target.closest('.modal')) step(Math.sign(dy));
+});
+addEventListener('keydown', (e) => {
+  if (['ArrowDown', 'ArrowRight', 'PageDown'].includes(e.key)) step(1);
+  if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key)) step(-1);
+});
+
+const ndc = new THREE.Vector3();
+gsap.ticker.add(() => {
+  if (!spotOn || !world.journey) return;
+  ndc.copy(spotPos).project(world.journey.camera);
+  const hidden = ndc.z > 1 || Math.abs(ndc.x) > 1.1 || Math.abs(ndc.y) > 1.1;
+  spot.style.visibility = hidden ? 'hidden' : 'visible';
+  const x = (ndc.x * 0.5 + 0.5) * innerWidth;
+  const y = (-ndc.y * 0.5 + 0.5) * innerHeight;
+  spot.style.transform = `translate3d(${Math.min(x, innerWidth - 170)}px, ${y}px, 0)`;
 });
 
 runLoader();

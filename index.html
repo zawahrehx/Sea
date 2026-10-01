@@ -153,6 +153,33 @@
     <p class="hint"><svg viewBox="0 0 32 32"><circle cx="14" cy="14" r="11" stroke-dasharray="3 3" /><path d="M14 10l12 6-5 2-2 5z" /></svg>Choose a current<br />to start exploring</p>
   </main>
 
+  <!-- Single journey -->
+  <main class="view view--journey" id="view-journey">
+    <div class="jintro" id="jintro">
+      <p class="jintro__eyebrow">A Tidewater journey &middot; <b id="ji-place"></b></p>
+      <h2 class="jintro__title"><span class="outline" id="ji-a"></span><span id="ji-b"></span></h2>
+      <p class="jintro__tag">Four stops. Use scroll, swipe or the arrows to move between them.</p>
+      <button class="btn-bracket" id="journey-start" data-sfx>
+        <span class="btn-bracket__label" data-scramble>Start Journey</span>
+        <i></i><i></i><i></i><i></i>
+      </button>
+    </div>
+
+    <section class="chapter cut" id="chapter" aria-live="polite">
+      <p class="chapter__count">Stop <b id="ch-num">01</b> / 04</p>
+      <h3 class="chapter__title" id="ch-title"></h3>
+      <p class="chapter__text" id="ch-text"></p>
+      <div class="chapter__nav">
+        <button class="btn-cut" id="ch-prev" data-sfx><span>Back</span></button>
+        <button class="btn-cut" id="ch-next" data-sfx><span id="ch-next-label">Next</span></button>
+      </div>
+      <div class="chapter__bar"><i id="ch-bar"></i></div>
+    </section>
+
+    <button class="spot" id="spot" data-sfx><span class="spot__ring"></span><span class="spot__label" id="spot-label"></span></button>
+    <button class="btn-cut jexit" id="journey-exit" data-sfx><span data-scramble>All Currents</span></button>
+  </main>
+
   <!-- Modal -->
   <div class="modal" id="modal" aria-hidden="true">
     <div class="modal__panel">

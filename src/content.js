@@ -1,6 +1,20 @@
 export const journeys = [
   {
     code: 'Ref. TW-01 / Coral Triangle',
+    place: 'Coral Triangle',
+    depth: 14,
+    temp: 28,
+    intro: ['Threads of', 'the Reef'],
+    chapters: [
+      { title: 'A crowded city', text: 'Every ledge and crack on a reef is somebody\'s home. Thousands of species share a strip of shallow, sunlit water.',
+        spot: { label: 'Reef builders', title: 'Tiny Architects', copy: ['Coral heads are colonies of small animals called polyps. Each one lays down a thin layer of limestone, and over centuries those layers become a reef.'], stats: ['Polyps live in partnership with algae', 'Reefs grow a few millimetres a year'] } },
+      { title: 'Partners in colour', text: 'Algae living inside the coral give it colour and most of its food. When the water gets too warm, that partnership breaks down.',
+        spot: { label: 'Bleaching', title: 'When Coral Turns White', copy: ['Heat stress makes coral push out its algae. The skeleton shows through and the colony starves unless temperatures fall again.'], stats: ['A rise of 1°C can trigger bleaching', 'Recovery can take a decade'] } },
+      { title: 'Clean-up crews', text: 'Grazing fish trim back seaweed so young corals have room to settle. Remove the grazers and the reef chokes.',
+        spot: { label: 'Grazers', title: 'Gardeners of the Reef', copy: ['Parrotfish and surgeonfish spend most of the day eating algae. Protecting them is one of the simplest ways to help a reef bounce back.'], stats: ['Some parrotfish make tonnes of sand a year', 'Grazers keep space open for new coral'] } },
+      { title: 'A living sea wall', text: 'The reef\'s rough outer edge breaks waves before they reach the beach, protecting homes and harbours behind it.',
+        spot: { label: 'Coastal shield', title: 'Breaking the Waves', copy: ['A healthy reef crest takes most of the energy out of incoming waves. Without it, storms reach the shore at full strength.'], stats: ['Most wave energy stopped at the crest', 'Cheaper than building concrete defences'] } },
+    ],
     eyebrow: 'Current one',
     title: 'Threads of the Reef',
     copy: [
@@ -12,6 +26,20 @@ export const journeys = [
   },
   {
     code: 'Ref. TW-02 / Pacific Gyre',
+    place: 'Pacific Gyre',
+    depth: 32,
+    temp: 21,
+    intro: ['Guarding the', 'Open Blue'],
+    chapters: [
+      { title: 'Room to roam', text: 'Out here there are no walls. Animals cover huge distances between places to feed, rest and breed.',
+        spot: { label: 'Migration', title: 'Ocean Highways', copy: ['Tuna, sharks and turtles follow seasonal routes that can cross whole ocean basins. A threat anywhere along the route affects the whole population.'], stats: ['Some journeys span over 10,000 km', 'Routes repeat year after year'] } },
+      { title: 'Gentle giants', text: 'Manta rays glide through the water filtering plankton. They grow slowly and have few young, so every adult counts.',
+        spot: { label: 'Manta rays', title: 'Wings in the Water', copy: ['Mantas return to the same cleaning stations, where small fish pick parasites from their skin. Divers can recognise individuals by the spots on their bellies.'], stats: ['Wingspans can reach several metres', 'One pup every few years'] } },
+      { title: 'Safety in numbers', text: 'Bait balls form when small fish crowd together to confuse predators. They feed everything from seabirds to whales.',
+        spot: { label: 'Forage fish', title: 'The Base of the Feast', copy: ['Sardines, anchovies and herring turn plankton into food for larger animals. Taking too many leaves the whole food web short.'], stats: ['Food for seabirds, seals and whales', 'Very sensitive to overfishing'] } },
+      { title: 'Lines on the map', text: 'Marine protected areas give wildlife space where fishing and mining are limited. The biggest ones are larger than many countries.',
+        spot: { label: 'Protection', title: 'Spillover', copy: ['When a zone is well protected, fish inside grow larger and have more young. Some of them swim out, raising catches in the waters around it.'], stats: ['Larger fish produce far more eggs', 'Benefits reach nearby fisheries'] } },
+    ],
     eyebrow: 'Current two',
     title: 'Guarding the Open Blue',
     copy: [
@@ -23,6 +51,20 @@ export const journeys = [
   },
   {
     code: 'Ref. TW-03 / Temperate Shelf',
+    place: 'Temperate Shelf',
+    depth: 12,
+    temp: 13,
+    intro: ['Forests', 'Below Waves'],
+    chapters: [
+      { title: 'Into the canopy', text: 'Kelp grows up towards the light in cool, nutrient-rich water, forming forests that sway with every swell.',
+        spot: { label: 'Kelp', title: 'Fastest on Earth', copy: ['Kelp is a large brown alga, not a plant. In good conditions it can grow faster than almost anything on land.'], stats: ['Can grow half a metre in a day', 'Holds itself up with gas-filled floats'] } },
+      { title: 'A safe nursery', text: 'Young fish shelter between the fronds until they are big enough to survive in open water.',
+        spot: { label: 'Nursery', title: 'Growing Up Hidden', copy: ['The dense stems slow the current and hide small fish from predators. Many species people eat start their lives here.'], stats: ['Shelter for juvenile fish', 'Calmer water inside the forest'] } },
+      { title: 'Meadows on the floor', text: 'Seagrass covers the sandy floor like a lawn. Its roots hold the seabed in place and lock carbon into the mud.',
+        spot: { label: 'Blue carbon', title: 'Carbon in the Mud', copy: ['Seagrass meadows bury carbon in their sediment, where it can stay for centuries if the meadow is left undisturbed.'], stats: ['Stores carbon for hundreds of years', 'Damaged meadows release it again'] } },
+      { title: 'Bringing it back', text: 'Where forests and meadows have been lost, people are replanting them by hand, one patch at a time.',
+        spot: { label: 'Restoration', title: 'Replanting the Sea', copy: ['Volunteers and scientists collect seeds and young plants, then set them out in protected patches. Healthy patches slowly spread on their own.'], stats: ['Restored patches spread naturally', 'Wildlife returns within a few seasons'] } },
+    ],
     eyebrow: 'Current three',
     title: 'Forests Below Waves',
     copy: [
