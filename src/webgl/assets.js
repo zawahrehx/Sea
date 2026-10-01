@@ -7,11 +7,11 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  * version when a file is missing, so the site works without them.
  */
 const MODELS = {
-  fishYellow: { file: 'models/fish-yellow.glb', size: 1, axis: 'length', flip: true },
-  fishBlue: { file: 'models/fish-blue.glb', size: 1, axis: 'length', flip: false },
-  manta: { file: 'models/manta.glb', size: 5.5, axis: 'span', pca: true, rotY: -2.55 },
-  coralBranch: { file: 'models/coral-branch.glb', size: 1.4, axis: 'height' },
-  coralBrain: { file: 'models/coral-brain.glb', size: 1.6, axis: 'width' },
+  fishYellow: { file: 'models/fish-yellow.json', size: 1, axis: 'length', flip: true },
+  fishBlue: { file: 'models/fish-blue.json', size: 1, axis: 'length', flip: false },
+  manta: { file: 'models/manta.json', size: 5.5, axis: 'span', pca: true, rotY: -2.55 },
+  coralBranch: { file: 'models/coral-branch.json', size: 1.4, axis: 'height' },
+  coralBrain: { file: 'models/coral-brain.json', size: 1.6, axis: 'width' },
 };
 
 const TEXTURES = {
