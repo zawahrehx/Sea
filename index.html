@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidewater</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@300;400;500;600&family=Saira:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <canvas class="gl" id="gl"></canvas>
+  <div class="veil" id="veil"></div>
+
+  <!-- Loader -->
+  <section class="loader" id="loader">
+    <div class="loader__bg"></div>
+
+    <div class="loader__readout" id="readout">
+      <p data-label="Signal" data-value="Locked">Scanning</p>
+      <p data-label="Region" data-value="South Pacific">Searching</p>
+      <p data-label="Position" data-value="21.374° S / 159.775° W">Searching</p>
+    </div>
+
+    <div class="loader__dial" id="dial">
+      <span class="loader__mark" style="--a:90deg">25</span>
+      <span class="loader__mark" style="--a:180deg">50</span>
+      <span class="loader__mark" style="--a:270deg">75</span>
+      <span class="loader__mark" style="--a:0deg">100</span>
+      <svg viewBox="0 0 300 300" class="loader__ring">
+        <circle cx="150" cy="150" r="128" class="loader__track" />
+        <g id="ticks"></g>
+        <line x1="150" y1="0" x2="150" y2="40" class="loader__spoke" transform="rotate(-20 150 150)" />
+        <line x1="150" y1="0" x2="150" y2="40" class="loader__spoke" transform="rotate(160 150 150)" />
+        <circle r="3" class="loader__node" id="node-a" />
+        <circle r="3" class="loader__node" id="node-b" />
+      </svg>
+      <div class="loader__status">
+        <span id="loader-status-a">Loading<br />Experience</span>
+        <span id="loader-status-b">Signal<br />Acquired</span>
+      </div>
+    </div>
+
+    <div class="corner corner--bl"><svg viewBox="0 0 30 30"><rect x=".5" y=".5" width="29" height="29" /><line x1="0" y1="0" x2="30" y2="30" /></svg></div>
+    <div class="corner corner--br">
+      <small>Tidewater Project<br />Concept build<br />2026</small>
+      <svg viewBox="0 0 30 30"><rect x=".5" y=".5" width="29" height="29" /><line x1="0" y1="0" x2="30" y2="30" /><line x1="30" y1="0" x2="0" y2="30" /></svg>
+    </div>
+
+    <div class="intro" id="intro">
+      <svg class="intro__logo logo-mark" viewBox="0 0 48 48"><use href="#mark" /></svg>
+      <h1 class="intro__title">
+        <span class="mask"><span class="outline" data-split>Beneath</span></span>
+        <span class="mask"><span data-split>The Tide</span></span>
+      </h1>
+      <p class="intro__tag mask"><span>Sound is part of this experience.</span></p>
+      <button class="btn-bracket" id="begin" data-sfx>
+        <span class="btn-bracket__label" data-scramble>Begin</span>
+        <i></i><i></i><i></i><i></i>
+      </button>
+    </div>
+  </section>
+
+  <!-- Chrome -->
+  <header class="header" id="header">
+    <a href="#" class="brand" id="brand" aria-label="Tidewater home">
+      <svg class="logo-mark" viewBox="0 0 48 48"><use href="#mark" /></svg>
+      <span class="brand__word">Tide<br />water<small>Ocean Project</small></span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#" data-go="journeys" data-scramble data-sfx>Journeys</a>
+      <a href="#" data-modal="about" data-scramble data-sfx>About</a>
+      <a href="#" data-modal="involved" data-scramble data-sfx>Take Part</a>
+      <a href="#" data-modal="learn" data-scramble data-sfx>Learn</a>
+      <button class="nav__share" data-scramble data-sfx>Share <b>+</b></button>
+      <div class="lang">
+        <button class="lang__btn" id="lang-btn" data-sfx>EN <svg viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" /></svg></button>
+        <ul class="lang__list cut" id="lang-list">
+          <li class="is-active">English</li><li>Español</li><li>Português</li><li>Français</li><li>العربية</li>
+        </ul>
+      </div>
+    </nav>
+    <button class="menu-toggle" id="menu-toggle" aria-label="Menu"><i></i><i></i></button>
+  </header>
+
+  <aside class="hud" id="hud">
+    <div class="hud__globe">
+      <svg viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="56" class="hud__ring" />
+        <circle cx="60" cy="60" r="56" class="hud__ring-dash" />
+        <line x1="60" y1="-10" x2="60" y2="130" class="hud__cross" />
+        <line x1="-10" y1="60" x2="130" y2="60" class="hud__cross" />
+        <circle cx="60" cy="60" r="40" class="hud__sphere" />
+        <g class="hud__grid" id="globe-grid"></g>
+      </svg>
+    </div>
+    <div class="hud__text">
+      <p class="hud__loc" id="hud-loc">South Pacific</p>
+      <p class="hud__meta">Discovered: <span id="hud-progress">0%</span></p>
+      <div class="hud__stats">
+        <span><em>Depth:</em> <b id="hud-depth">0m</b></span>
+        <span><em>Temp:</em> <b id="hud-temp">24°c</b></span>
+      </div>
+    </div>
+  </aside>
+
+  <button class="audio-btn cut" id="audio-btn" data-sfx>
+    <span class="audio-btn__bars" id="bars"></span>
+    <span data-scramble>Sound</span>
+  </button>
+
+  <!-- Surface view -->
+  <main class="view view--surface" id="view-surface">
+    <p class="breath" id="breath"><span>Breathe in</span><span>Breathe out</span></p>
+    <div class="narration" id="narration">
+      <h2>Slow down. Let your breathing follow the swell.</h2>
+      <h2>Every second breath you take began in the sea.</h2>
+      <h2>Tiny drifting plants make the air we live on.</h2>
+      <h2>What happens below the waves reaches all of us.</h2>
+      <h2>Fill your lungs. We are going under.</h2>
+    </div>
+    <button class="btn-bracket" id="dive" data-sfx>
+      <span class="btn-bracket__label" data-scramble>Go Under</span>
+      <i></i><i></i><i></i><i></i>
+    </button>
+  </main>
+
+  <!-- Journeys view -->
+  <main class="view view--journeys" id="view-journeys">
+    <div class="jhead">
+      <svg class="logo-mark jhead__mark" viewBox="0 0 48 48"><use href="#mark" /></svg>
+      <h2 class="jhead__title"><span class="outline">Pathways to a</span><span>Living Sea</span></h2>
+      <p class="jhead__copy">A warming planet is reshaping the water below us. Pick a current and follow it to see why a thriving ocean matters for every coastline, city and creature.</p>
+    </div>
+
+    <article class="journey" style="--x:20%;--y:50%" data-journey="0">
+      <span class="journey__icon"><svg viewBox="0 0 40 40"><path d="M8 26c4-10 20-10 24 0M12 26l-3 5M28 26l3 5M16 27v5M24 27v5M14 19l-4-6M26 19l4-6" /><circle cx="17" cy="21" r="1" /><circle cx="23" cy="21" r="1" /></svg></span>
+      <h3>Threads of <br />the Reef</h3>
+      <button class="btn-cut" data-open="0" data-sfx><span data-scramble>Enter</span></button>
+    </article>
+    <article class="journey" style="--x:50%;--y:63%" data-journey="1">
+      <span class="journey__icon"><svg viewBox="0 0 40 40"><path d="M7 20c6-7 16-7 22 0-6 7-16 7-22 0zM29 20l5-5v10z" /><circle cx="13" cy="19" r="1" /></svg></span>
+      <h3>Guarding the <br />Open Blue</h3>
+      <button class="btn-cut" data-open="1" data-sfx><span data-scramble>Enter</span></button>
+    </article>
+    <article class="journey" style="--x:80%;--y:50%" data-journey="2">
+      <span class="journey__icon"><svg viewBox="0 0 40 40"><path d="M20 34V8M20 14c-5-2-7-6-6-9M20 20c5-2 7-6 6-9M20 26c-5-2-8-5-7-9M20 30c5-1 8-4 8-8" /></svg></span>
+      <h3>Forests <br />Below Waves</h3>
+      <button class="btn-cut" data-open="2" data-sfx><span data-scramble>Enter</span></button>
+    </article>
+
+    <p class="hint"><svg viewBox="0 0 32 32"><circle cx="14" cy="14" r="11" stroke-dasharray="3 3" /><path d="M14 10l12 6-5 2-2 5z" /></svg>Choose a current<br />to start exploring</p>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal__panel">
+      <span class="modal__edge modal__edge--t"></span>
+      <span class="modal__edge modal__edge--b"></span>
+      <button class="modal__close" id="modal-close" aria-label="Close" data-sfx><svg viewBox="0 0 20 20"><path d="M3 3l14 14M17 3L3 17" /></svg></button>
+      <div class="modal__label"><b id="m-kicker">Field Report</b><small id="m-code"></small></div>
+      <div class="modal__grid">
+        <div class="modal__titlecol">
+          <p class="modal__eyebrow" id="m-eyebrow"></p>
+          <h2 class="modal__title" id="m-title"></h2>
+          <div class="modal__orb"><canvas id="orb" width="320" height="320"></canvas></div>
+        </div>
+        <div class="modal__body">
+          <div class="modal__copy" id="m-copy"></div>
+          <div class="modal__stats">
+            <h4>Key Figures</h4>
+            <ul id="m-stats"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cursor" id="cursor"><i></i></div>
+
+  <svg width="0" height="0" style="position:absolute">
+    <symbol id="mark" viewBox="0 0 48 48">
+      <path d="M24 3a21 21 0 1 0 0 42 21 21 0 0 0 0-42Zm0 4a17 17 0 0 1 15.6 10.2c-3.2-1.8-6.8-1.6-10 .2-3.6 2-7.4 2.2-11 .2-3.3-1.8-6.7-2-9.8-.4A17 17 0 0 1 24 7Zm-17 17c0-1 .1-2 .3-3 3-2 6.4-2.1 9.6-.3 4 2.2 8.4 2 12.4-.2 3.3-1.8 6.8-1.9 10-.1.4 1.1.6 2.3.7 3.5-3.4-1.6-7-1.4-10.4.5-3.6 2-7.4 2.2-11 .2-3.8-2.1-7.8-2.3-11.6-.6Zm1.4 6.8c3.2-1.7 6.6-1.6 9.8.2 4 2.2 8.4 2 12.4-.2 3.4-1.9 7-2 10.4-.3A17 17 0 0 1 24 41 17 17 0 0 1 8.4 30.8Z" />
+    </symbol>
+  </svg>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
