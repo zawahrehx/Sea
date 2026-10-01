@@ -50,15 +50,17 @@ const causticGLSL = /* glsl */ `
  * Adds animated caustic light to a standard material, plus optional
  * vertex motion code that edits `transformed` in local space.
  */
-export function underwater(material, shared, { key = 'base', head = '', motion = '', strength = 0.5 } = {}) {
-  material.customProgramCacheKey = () => `uw-${key}`;
+export function underwater(material, shared, { key = 'base', head = '', motion = '', strength = 0.5, tri = null, triScale = 0.25 } = {}) {
+  material.customProgramCacheKey = () => `uw-${key}${tri ? '-tri' : ''}`;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = shared.uTime;
+    if (tri) shader.uniforms.tTri = { value: tri };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         uniform float uTime;
         varying vec3 vCWorld;
         varying float vCUp;
+        varying vec3 vCN;
         ${head}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         ${motion}`)
@@ -70,13 +72,23 @@ export function underwater(material, shared, { key = 'base', head = '', motion =
           cn = mat3(instanceMatrix) * cn;
         #endif
         vCWorld = (modelMatrix * cw).xyz;
-        vCUp = normalize(mat3(modelMatrix) * cn).y;`);
+        vCN = normalize(mat3(modelMatrix) * cn);
+        vCUp = vCN.y;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uTime;
         varying vec3 vCWorld;
         varying float vCUp;
+        varying vec3 vCN;
+        ${tri ? 'uniform sampler2D tTri;' : ''}
         ${causticGLSL}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        ${tri ? `
+        vec3 bw = pow(abs(vCN), vec3(4.0));
+        bw /= bw.x + bw.y + bw.z;
+        vec3 tp = vCWorld * ${triScale.toFixed(3)};
+        vec3 triCol = texture2D(tTri, tp.yz).rgb * bw.x + texture2D(tTri, tp.xz).rgb * bw.y + texture2D(tTri, tp.xy).rgb * bw.z;
+        diffuseColor.rgb *= triCol * 2.2;` : ''}`)
       .replace('#include <fog_fragment>', `
         gl_FragColor.rgb += vec3(0.55, 0.88, 1.0) * caustic(vCWorld.xz) * smoothstep(-0.2, 0.9, vCUp) * ${strength.toFixed(2)};
         #include <fog_fragment>`);

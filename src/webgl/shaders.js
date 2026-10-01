@@ -1,4 +1,5 @@
 export const noise = /* glsl */ `
+  vec3 toLinear(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float vnoise(vec2 p) {
     vec2 i = floor(p), f = fract(p);
@@ -27,6 +28,8 @@ export const skyFrag = /* glsl */ `
   uniform float uTime;
   uniform vec3 uZenith;
   uniform vec3 uHorizon;
+  uniform sampler2D uSky;
+  uniform float uHasSky;
   varying vec3 vDir;
   ${noise}
   void main() {
@@ -42,7 +45,19 @@ export const skyFrag = /* glsl */ `
     float fade = smoothstep(0.0, 0.25, h);
     col = mix(col, cloud, c * fade * 0.92);
     col = mix(col, uHorizon * 1.08, (1.0 - smoothstep(0.0, 0.05, h)) * 0.6);
+
+    if (uHasSky > 0.5) {
+      // photo covers the front half of the dome and is mirrored behind
+      float t = atan(d.x, -d.z) / 3.14159265 + uTime * 0.0015;
+      float u = 0.5 + t;
+      u = u > 1.0 ? 2.0 - u : (u < 0.0 ? -u : u);
+      float e = asin(clamp(d.y, 0.0, 1.0)) / 1.5707963;
+      float v = min(0.045 + pow(e, 0.85) * 1.1, 0.995);
+      vec3 photo = texture2D(uSky, vec2(u, v)).rgb;
+      col = mix(uHorizon * 1.05, photo, smoothstep(0.0, 0.03, h));
+    }
     gl_FragColor = vec4(col, 1.0);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
   }
 `;
 
@@ -129,6 +144,7 @@ export const oceanFrag = /* glsl */ `
       float haze = 1.0 - exp(-dist * 0.0035);
       col = mix(col, uHorizon, haze * 0.85);
       gl_FragColor = vec4(col, 1.0);
+      gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
     } else {
       // seen from below: bright Snell's window, total internal reflection outside it
       vec3 Nd = -N;
@@ -141,6 +157,7 @@ export const oceanFrag = /* glsl */ `
       float fog = 1.0 - exp(-dist * 0.02);
       col = mix(col, volumeColor(-V, uWater, uAbyss, uDepth), fog);
       gl_FragColor = vec4(col, 1.0);
+      gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
     }
   }
 `;
@@ -170,6 +187,7 @@ export const volumeFrag = /* glsl */ `
     float shafts = fbm(vec2(atan(d.x, d.z) * 6.0, uTime * 0.05)) * smoothstep(0.45, 1.0, up);
     col += shafts * 0.08 * (1.0 - uDepth * 0.7);
     gl_FragColor = vec4(col, 1.0);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
   }
 `;
 
@@ -220,6 +238,7 @@ export const currentVert = /* glsl */ `
 `;
 
 export const currentFrag = /* glsl */ `
+  vec3 toLinear(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
   varying float vAlpha;
   varying float vTint;
   void main() {
@@ -229,6 +248,7 @@ export const currentFrag = /* glsl */ `
     float a = smoothstep(0.5, 0.0, d);
     vec3 col = mix(vec3(0.35, 0.75, 1.0), vec3(0.6, 1.0, 0.95), vTint * 0.5 + 0.5);
     gl_FragColor = vec4(col, a * vAlpha);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
   }
 `;
 
@@ -251,11 +271,13 @@ export const dustVert = /* glsl */ `
 `;
 
 export const dustFrag = /* glsl */ `
+  vec3 toLinear(vec3 c) { return pow(max(c, 0.0), vec3(2.2)); }
   varying float vAlpha;
   void main() {
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
     gl_FragColor = vec4(0.75, 0.92, 1.0, smoothstep(0.5, 0.1, d) * vAlpha);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
   }
 `;
 
@@ -280,5 +302,36 @@ export const rayFrag = /* glsl */ `
     float flick = 0.55 + 0.45 * vnoise(vec2(uTime * 0.4 + uSeed * 10.0, x * 4.0));
     float fall = pow(vUv.y, 1.6);
     gl_FragColor = vec4(vec3(0.6, 0.88, 1.0), streak * flick * fall * 0.16 * uReveal);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
+  }
+`;
+
+/* Bubbles that stream upward past the camera during a dive */
+export const bubbleVert = /* glsl */ `
+  uniform float uTime;
+  uniform float uPixel;
+  uniform float uAmount;
+  attribute vec3 aRand;
+  varying float vAlpha;
+  void main() {
+    vec3 p = position;
+    float h = 16.0;
+    p.y = mod(aRand.x * h + uTime * (3.0 + aRand.y * 5.0), h) - h * 0.5;
+    p.x += sin(uTime * 3.0 + aRand.z * 20.0) * 0.15;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = uPixel * (2.0 + aRand.z * 6.0) * (12.0 / -mv.z);
+    vAlpha = uAmount * (0.4 + 0.6 * aRand.y);
+  }
+`;
+
+export const bubbleFrag = /* glsl */ `
+  varying float vAlpha;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    if (d > 0.5) discard;
+    float ring = smoothstep(0.5, 0.42, d) * (0.35 + smoothstep(0.25, 0.45, d));
+    float glint = smoothstep(0.14, 0.0, length(gl_PointCoord - vec2(0.35, 0.32)));
+    gl_FragColor = vec4(vec3(0.75, 0.95, 1.0), (ring + glint) * vAlpha);
   }
 `;

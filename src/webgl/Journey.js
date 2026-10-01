@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as S from './shaders.js';
 import * as M from './models.js';
+import { assets } from './assets.js';
 
 /* Per-journey look */
 const LOOKS = [
@@ -20,6 +21,7 @@ const gradientFrag = /* glsl */ `
     float shafts = fbm(vec2(atan(d.x, d.z) * 7.0, uTime * 0.06)) * smoothstep(0.1, 0.9, d.y);
     col += shafts * 0.09;
     gl_FragColor = vec4(col, 1.0);
+    gl_FragColor.rgb = toLinear(gl_FragColor.rgb);
   }
 `;
 
@@ -125,14 +127,22 @@ export class Journey {
   }
 
   buildFloor() {
-    const mat = M.underwater(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }), this.shared, { key: 'sand', strength: 0.7 });
+    const T = assets.tex;
+    const params = { vertexColors: true, roughness: 1 };
+    if (T.sandColor) {
+      for (const t of [T.sandColor, T.sandNormal, T.sandRough]) t?.repeat.set(56, 56);
+      Object.assign(params, { map: T.sandColor, normalMap: T.sandNormal || null, roughnessMap: T.sandRough || null, normalScale: new THREE.Vector2(1.4, 1.4) });
+    }
+    const mat = M.underwater(new THREE.MeshStandardMaterial(params), this.shared, { key: 'sand', strength: 0.7 });
     this.scene.add(new THREE.Mesh(M.makeSeabed(this.look.sand), mat));
   }
 
   buildRocks() {
     const r = M.rng(10 + this.index);
-    const kinds = Array.from({ length: 7 }, (_, i) => M.makeRock(i * 3.7 + this.index * 11, 4));
-    const mat = M.underwater(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }), this.shared, { key: 'rock' });
+    const tri = assets.tex.rockColor || null;
+    const kinds = Array.from({ length: 7 }, (_, i) =>
+      tri ? M.makeRock(i * 3.7 + this.index * 11, 4, '#b9d0b4', '#c3d3d8') : M.makeRock(i * 3.7 + this.index * 11, 4));
+    const mat = M.underwater(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }), this.shared, { key: 'rock', tri, triScale: 0.22 });
     this.rockSpots = [];
     const place = (x, z, s, sink = 0.5) => {
       const m = new THREE.Mesh(kinds[(r() * kinds.length) | 0], mat);
@@ -161,10 +171,10 @@ export class Journey {
   }
 
   /** Scatter instances of `geo` at the given points. */
-  scatter(geo, color, points, { scale = [0.6, 1.2], key, motion = '', side = THREE.FrontSide, rough = 0.8, emissive = 0 }) {
+  scatter(geo, color, points, { scale = [0.6, 1.2], key, motion = '', side = THREE.FrontSide, rough = 0.8, emissive = 0, map = null }) {
     const c = new THREE.Color(color);
     const mat = M.underwater(
-      new THREE.MeshStandardMaterial({ color: c, roughness: rough, side, emissive: c, emissiveIntensity: emissive }),
+      new THREE.MeshStandardMaterial({ color: c, map, roughness: rough, side, emissive: map ? 0x000000 : c, emissiveIntensity: emissive }),
       this.shared,
       { key, motion },
     );
@@ -202,8 +212,8 @@ export class Journey {
     return pts;
   }
 
-  fishMaterial(key) {
-    return M.underwater(new THREE.MeshStandardMaterial({ roughness: 0.45, metalness: 0.25, side: THREE.DoubleSide }), this.shared, {
+  fishMaterial(key, map = null) {
+    return M.underwater(new THREE.MeshStandardMaterial({ map, roughness: map ? 0.55 : 0.45, metalness: map ? 0.05 : 0.25, side: THREE.DoubleSide }), this.shared, {
       key,
       strength: 0.25,
       motion: `
@@ -215,7 +225,15 @@ export class Journey {
   addSchool(opts) {
     if (!this.fishGeo) this.fishGeo = M.makeFish();
     if (!this.fishMat) this.fishMat = this.fishMaterial('fish');
-    const s = new School(this.fishGeo, this.fishMat, opts.count, opts);
+    let geo = this.fishGeo, mat = this.fishMat;
+    const model = opts.model && assets.models[opts.model];
+    if (model) {
+      geo = model.geo;
+      this.modelMats ||= {};
+      mat = this.modelMats[opts.model] ||= this.fishMaterial(`fish-${opts.model}`, model.mat.map);
+      opts = { ...opts, colors: ['#ffffff', '#f2f2f2', '#e6e6e6'] };
+    }
+    const s = new School(geo, mat, opts.count, opts);
     this.scene.add(s.mesh);
     this.schools.push(s);
   }
@@ -225,23 +243,28 @@ export class Journey {
     const around = this.rockSpots;
     const branch = [M.makeBranchCoral(1), M.makeBranchCoral(2, { depth: 3, radius: 0.14 })];
     const fan = M.makeBranchCoral(5, { planar: true, depth: 5, radius: 0.05, length: 0.55 });
-    this.scatter(branch[0], '#ff7d8f', this.floorPoints(130, { seed: 1, around }), { key: 'c1', scale: [0.7, 1.6] });
+    const CB = assets.models.coralBranch, CR = assets.models.coralBrain;
+    if (CB) this.scatter(CB.geo, '#ffffff', this.floorPoints(80, { seed: 1, around }), { key: 'm1', scale: [0.8, 2.0], map: CB.mat.map, side: THREE.DoubleSide });
+    else this.scatter(branch[0], '#ff7d8f', this.floorPoints(130, { seed: 1, around }), { key: 'c1', scale: [0.7, 1.6] });
     this.scatter(branch[1], '#ffa04d', this.floorPoints(90, { seed: 2, around }), { key: 'c2', scale: [0.6, 1.3] });
     this.scatter(fan, '#b071d8', this.floorPoints(60, { seed: 3, around, far: 16 }), { key: 'c3', scale: [1.4, 2.6], side: THREE.DoubleSide });
-    this.scatter(M.makeBrainCoral(4), '#d9bf5f', this.floorPoints(70, { seed: 4, around }), { key: 'c4', scale: [0.5, 1.2] });
+    if (CR) this.scatter(CR.geo, '#ffffff', this.floorPoints(60, { seed: 4, around }), { key: 'm2', scale: [0.5, 1.3], map: CR.mat.map });
+    else this.scatter(M.makeBrainCoral(4), '#d9bf5f', this.floorPoints(70, { seed: 4, around }), { key: 'c4', scale: [0.5, 1.2] });
     this.scatter(M.makeTubeCluster(6), '#e4609f', this.floorPoints(50, { seed: 6, around }), { key: 'c5', scale: [0.7, 1.4], side: THREE.DoubleSide });
     this.scatter(M.makeBrainCoral(8), '#8fcf6a', this.floorPoints(60, { seed: 8, around }), { key: 'c6', scale: [0.4, 0.9] });
 
     const yellow = ['#ffd84a', '#ffc93a'], blue = ['#3f8cff', '#2c6fe0'], mixed = ['#ff8a5b', '#ffffff', '#ffd84a'];
     const C = (x, y, z, ax, az, w) => (t) => new THREE.Vector3(x + Math.sin(t * w) * ax, y + Math.sin(t * w * 1.7) * 0.6, z + Math.cos(t * w) * az);
-    this.addSchool({ count: 70, center: C(-7, M.terrainHeight(-7, 4) + 3, 4, 3, 4, 0.12), radius: 3, colors: yellow, seed: 1, size: [0.4, 0.55] });
-    this.addSchool({ count: 140, center: C(4, 6, -24, 4, 6, 0.1), radius: 5, colors: blue, seed: 2, size: [0.25, 0.4] });
+    this.addSchool({ count: 60, model: 'fishYellow', center: C(-7, M.terrainHeight(-7, 4) + 3, 4, 3, 4, 0.12), radius: 3, colors: yellow, seed: 1, size: [0.45, 0.6] });
+    this.addSchool({ count: 110, model: 'fishBlue', center: C(4, 6, -24, 4, 6, 0.1), radius: 5, colors: blue, seed: 2, size: [0.3, 0.45] });
     this.addSchool({ count: 90, center: C(-3, 8, -58, 6, 5, 0.08), radius: 6, colors: mixed, seed: 3, size: [0.35, 0.6] });
-    this.addSchool({ count: 40, center: C(6, 4, 14, 2, 2, 0.15), radius: 2, colors: yellow, seed: 4, size: [0.3, 0.45] });
+    this.addSchool({ count: 30, model: 'fishYellow', center: C(6, 4, 14, 2, 2, 0.15), radius: 2, colors: yellow, seed: 4, size: [0.35, 0.5] });
   }
 
   buildOpenBlue() {
-    this.scatter(M.makeBrainCoral(3), '#9fb39a', this.floorPoints(40, { seed: 2, near: 5, far: 18 }), { key: 'c1', scale: [0.6, 1.4] });
+    const CR = assets.models.coralBrain;
+    if (CR) this.scatter(CR.geo, '#cfd9d0', this.floorPoints(40, { seed: 2, near: 5, far: 18 }), { key: 'm2', scale: [0.6, 1.5], map: CR.mat.map });
+    else this.scatter(M.makeBrainCoral(3), '#9fb39a', this.floorPoints(40, { seed: 2, near: 5, far: 18 }), { key: 'c1', scale: [0.6, 1.4] });
     this.scatter(M.makeBranchCoral(9, { depth: 3 }), '#c58a9c', this.floorPoints(40, { seed: 4, near: 5, far: 18 }), { key: 'c2', scale: [0.8, 1.6] });
 
     const silver = ['#dfe9f0', '#c5d6e2', '#aebfcc'];
@@ -254,9 +277,10 @@ export class Journey {
       radius: 4, colors: ['#5d7f9a', '#3e5c74'], seed: 8, size: [0.9, 1.3],
     });
 
+    const MT = assets.models.manta;
     const manta = new THREE.Mesh(
-      M.makeManta(),
-      M.underwater(new THREE.MeshStandardMaterial({ color: '#22323d', roughness: 0.7, side: THREE.DoubleSide }), this.shared, {
+      MT ? MT.geo : M.makeManta(),
+      M.underwater(new THREE.MeshStandardMaterial({ color: MT ? '#ffffff' : '#22323d', map: MT?.mat.map || null, roughness: 0.7, side: THREE.DoubleSide }), this.shared, {
         key: 'manta',
         strength: 0.3,
         motion: `transformed.y += sin(uTime * 1.3 - abs(transformed.x) * 0.9) * pow(abs(transformed.x), 1.5) * 0.22;`,
@@ -311,7 +335,9 @@ export class Journey {
       key: 'grass', scale: [0.6, 1.5], side: THREE.DoubleSide,
       motion: `transformed.x += sin(uTime * 1.2 + float(gl_InstanceID) * 0.37) * transformed.y * 0.15;`,
     });
-    this.scatter(M.makeBrainCoral(12), '#9b8a62', this.floorPoints(30, { seed: 5, around: this.rockSpots }), { key: 'c1', scale: [0.4, 0.9] });
+    const CR = assets.models.coralBrain;
+    if (CR) this.scatter(CR.geo, '#b8b08a', this.floorPoints(26, { seed: 5, around: this.rockSpots }), { key: 'm2', scale: [0.4, 1.0], map: CR.mat.map });
+    else this.scatter(M.makeBrainCoral(12), '#9b8a62', this.floorPoints(30, { seed: 5, around: this.rockSpots }), { key: 'c1', scale: [0.4, 0.9] });
 
     this.addSchool({ count: 260, center: (t) => new THREE.Vector3(M.pathX(-20) + Math.sin(t * 0.1) * 5, 6, -20 + Math.cos(t * 0.1) * 6), radius: 5, colors: ['#cfd8d2', '#b7c3bb'], seed: 3, size: [0.25, 0.4] });
     this.addSchool({ count: 30, center: (t) => new THREE.Vector3(M.pathX(-60) + Math.sin(t * 0.06) * 6, 9, -62), radius: 6, colors: ['#e07a3a', '#c9662c'], seed: 5, size: [0.7, 1.0] });
@@ -385,6 +411,12 @@ export class Journey {
   setPose(i) {
     const { cam, tgt } = this.poses[i];
     Object.assign(this.pose, { px: cam[0], py: cam[1], pz: cam[2], tx: tgt[0], ty: tgt[1], tz: tgt[2] });
+  }
+
+  /** Start further back and higher, so the camera can glide in. */
+  setEntry() {
+    const { cam, tgt } = this.poses[0];
+    Object.assign(this.pose, { px: cam[0], py: cam[1] + 9, pz: cam[2] + 30, tx: tgt[0], ty: tgt[1] + 3, tz: tgt[2] });
   }
 
   /** World anchor for chapter i's info point (just off the target). */

@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import * as S from './shaders.js';
 import { Journey } from './Journey.js';
+import { Post } from './Post.js';
+import { assets } from './assets.js';
 
 const COLORS = {
-  zenith: new THREE.Color('#2f86c4'),
-  horizon: new THREE.Color('#8fd2ea'),
+  zenith: new THREE.Color('#2275c4'),
+  horizon: new THREE.Color('#a3d9ee'),
   deep: new THREE.Color('#0b3f6e'),
   shallow: new THREE.Color('#2f9ccf'),
   water: new THREE.Color('#0d4f7c'),
@@ -26,7 +28,11 @@ export class World {
     this.timer = new THREE.Timer();
 
     // Driven from outside by GSAP
-    this.state = { y: SURFACE_Y, pitch: 0.02, breath: 0, reveal: 0 };
+    this.state = { y: SURFACE_Y, z: 0, pitch: 0.02, breath: 0, reveal: 0, boost: 0, bubbles: 0 };
+    this.mix = 0;
+    this.speed = 0;
+    this.lastCam = new THREE.Vector3();
+    this.lastCamRef = null;
     this.pointer = new THREE.Vector2();
     this.look = new THREE.Vector2();
 
@@ -39,6 +45,8 @@ export class World {
     this.buildRays();
     this.buildCurrents();
     this.buildDust();
+    this.buildBubbles();
+    this.post = new Post(this.renderer, this.shared);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -55,7 +63,13 @@ export class World {
         fragmentShader: S.skyFrag,
         side: THREE.BackSide,
         depthWrite: false,
-        uniforms: { uTime: this.shared.uTime, uZenith: { value: COLORS.zenith }, uHorizon: { value: COLORS.horizon } },
+        uniforms: {
+          uTime: this.shared.uTime,
+          uZenith: { value: COLORS.zenith },
+          uHorizon: { value: COLORS.horizon },
+          uSky: { value: null },
+          uHasSky: { value: 0 },
+        },
       }),
     );
     this.sky.renderOrder = -2;
@@ -202,8 +216,36 @@ export class World {
     this.scene.add(this.dust);
   }
 
+  buildBubbles() {
+    const n = 700;
+    const p = new Float32Array(n * 3), r = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, rad = 1.5 + Math.random() * 10;
+      p.set([Math.cos(a) * rad, 0, -Math.abs(Math.sin(a) * rad) - 1], i * 3);
+      r.set([Math.random(), Math.random(), Math.random()], i * 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    geo.setAttribute('aRand', new THREE.BufferAttribute(r, 3));
+    this.bubbleMat = new THREE.ShaderMaterial({
+      vertexShader: S.bubbleVert,
+      fragmentShader: S.bubbleFrag,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms: { uTime: this.shared.uTime, uPixel: { value: 1 }, uAmount: { value: 0 } },
+    });
+    this.bubbles = new THREE.Points(geo, this.bubbleMat);
+    this.bubbles.frustumCulled = false;
+    this.scene.add(this.bubbles);
+  }
+
   /** Compile every program up front so the loader reflects real work. */
   warmup() {
+    if (assets.tex.sky) {
+      this.sky.material.uniforms.uSky.value = assets.tex.sky;
+      this.sky.material.uniforms.uHasSky.value = 1;
+    }
     this.camera.position.set(0, DEEP_Y, 0);
     this.volume.visible = true;
     this.renderer.compile(this.scene, this.camera);
@@ -220,6 +262,8 @@ export class World {
     const px = this.renderer.getPixelRatio();
     this.currentsMat.uniforms.uPixel.value = px;
     this.dustMat.uniforms.uPixel.value = px;
+    this.bubbleMat.uniforms.uPixel.value = px;
+    this.post.setSize(w, h, px);
   }
 
   /** 0 at the surface, 1 at the journeys depth */
@@ -244,16 +288,31 @@ export class World {
     this.timer.update();
     const t = this.timer.getElapsed();
     this.shared.uTime.value = t;
-    if (this.journey) {
-      this.journey.update(t, this.pointer);
-      this.renderer.render(this.journey.scene, this.journey.camera);
-      return;
+    const showHub = !this.journey || this.mix < 1;
+    if (showHub) this.updateHub();
+    if (this.journey) this.journey.update(t, this.pointer);
+
+    // speed blur follows whichever camera dominates the frame
+    const active = this.journey && this.mix >= 0.5 ? this.journey.camera : this.camera;
+    if (this.lastCamRef === active) {
+      const v = active.position.distanceTo(this.lastCam);
+      this.speed += (Math.min(v * 0.5, 1) - this.speed) * 0.08;
     }
+    this.lastCamRef = active;
+    this.lastCam.copy(active.position);
+    const u = this.post.uniforms;
+    u.uSpeed.value = Math.min(1.2, this.speed + this.state.boost);
+    u.uSplash.value = showHub ? Math.max(0, 1 - Math.abs(this.camera.position.y + 0.3) / 2.2) : 0;
+
+    this.post.render(this.scene, this.camera, this.journey?.scene, this.journey?.camera, this.journey ? this.mix : 0);
+  }
+
+  updateHub() {
     const s = this.state;
 
     this.look.lerp(this.pointer, 0.04);
     const cam = this.camera;
-    cam.position.set(this.look.x * 1.5, s.y + s.breath * 0.6, 0);
+    cam.position.set(this.look.x * 1.5, s.y + s.breath * 0.6, s.z);
     cam.rotation.set(s.pitch + this.look.y * 0.04 + s.breath * 0.015, -this.look.x * 0.06, 0, 'YXZ');
 
     const under = cam.position.y < 0.4;
@@ -267,7 +326,9 @@ export class World {
 
     this.currentsMat.uniforms.uReveal.value = s.reveal;
     this.dustMat.uniforms.uReveal.value = Math.min(1, d * 2.5);
-    this.dust.position.y = cam.position.y;
+    this.dust.position.set(0, cam.position.y, s.z);
+    this.bubbles.position.copy(cam.position);
+    this.bubbleMat.uniforms.uAmount.value = s.bubbles;
     const rayA = under ? Math.min(1, d * 4) * (1 - d * 0.55) : 0;
     this.rays.children.forEach((m) => { m.material.uniforms.uReveal.value = rayA; });
 
@@ -275,7 +336,5 @@ export class World {
     const v = new THREE.Vector3(this.pointer.x, this.pointer.y, 0.5).unproject(cam).sub(cam.position).normalize();
     const k = (-60 - cam.position.z) / v.z;
     this.currentsMat.uniforms.uMouse.value.copy(cam.position).addScaledVector(v, k);
-
-    this.renderer.render(this.scene, cam);
   }
 }

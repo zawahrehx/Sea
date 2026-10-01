@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import * as THREE from 'three';
 import { World, SURFACE_Y, DEEP_Y } from './webgl/World.js';
+import { loadAssets } from './webgl/assets.js';
 import { Sound } from './ui/audio.js';
 import { scramble, bindScrambleHover } from './ui/scramble.js';
 import { initCursor } from './ui/cursor.js';
@@ -112,9 +113,11 @@ async function runLoader() {
   readout.forEach((p, i) => tl.to(p, { opacity: 1, duration: 0.3 }, 0.3 + i * 0.35));
 
   const fontReady = document.fonts.ready;
-  gsap.to(progress, { v: 0.55, duration: 1.8, ease: 'power1.out', onUpdate: renderProgress });
-  await fontReady;
-  await new Promise((r) => setTimeout(r, 1900));
+  let loaded = 0;
+  const assetsReady = loadAssets((f) => { loaded = f; });
+  const fill = gsap.to(progress, { v: 0.85, duration: 6, ease: 'none', onUpdate: () => { progress.v = Math.min(progress.v, 0.15 + loaded * 0.7); renderProgress(); } });
+  await Promise.all([fontReady, assetsReady, new Promise((r) => setTimeout(r, 2200))]);
+  fill.kill();
   world.warmup();
   await gsap.to(progress, { v: 1, duration: 1.4, ease: 'power2.inOut', onUpdate: renderProgress });
 
@@ -226,6 +229,10 @@ function dive() {
     .to(world.state, { breath: 0, duration: 0.6 }, 0)
     .to(world.state, { pitch: -0.25, duration: 1.4, ease: 'power2.in' }, 0.2)
     .to(world.state, { y: -4, duration: 1.6, ease: 'power2.in' }, 0.6)
+    .to(world.state, { bubbles: 1, duration: 0.4 }, 1.6)
+    .to(world.state, { bubbles: 0, duration: 2.2, ease: 'power1.in' }, 2.2)
+    .to(world.state, { boost: 0.35, duration: 0.6 }, 1.5)
+    .to(world.state, { boost: 0, duration: 1.8 }, 2.1)
     .to(world.state, { y: DEEP_Y, duration: 3.2, ease: 'power3.inOut' }, 2.1)
     .to(world.state, { pitch: 0.04, duration: 3, ease: 'power2.inOut' }, 2.3)
     .to(world.state, { reveal: 1, duration: 2.5, ease: 'power1.out' }, 3.8)
@@ -259,6 +266,8 @@ function surface() {
     .set(v, { visibility: 'hidden' })
     .to(world.state, { reveal: 0, duration: 1 }, 0)
     .to(world.state, { y: SURFACE_Y, duration: 3.4, ease: 'power3.inOut' }, 0.3)
+    .to(world.state, { bubbles: 0.8, duration: 0.6 }, 1.4)
+    .to(world.state, { bubbles: 0, duration: 1 }, 2.6)
     .to(world.state, { pitch: -0.02, duration: 3, ease: 'power2.inOut' }, 0.5)
     .add(enterSurface, 3.6);
 }
@@ -375,13 +384,6 @@ const spot = $('#spot');
 const spotPos = new THREE.Vector3();
 let spotOn = false;
 
-function veil(fn) {
-  return gsap.timeline()
-    .to('#veil', { opacity: 1, duration: 0.9, ease: 'power2.in' })
-    .add(fn)
-    .to('#veil', { opacity: 0, duration: 1.2, ease: 'power2.out' }, '+=0.15');
-}
-
 function startJourney(i) {
   if (view !== 'journeys') return;
   view = 'entering';
@@ -389,27 +391,41 @@ function startJourney(i) {
   scramble($('#hud-progress'), `${Math.round((discovered.size / journeys.length) * 100)}%`, 0.6);
   const hub = $('#view-journeys');
   hub.classList.remove('is-active');
-  veil(() => {
-    gsap.set(hub, { visibility: 'hidden' });
-    world.openJourney(i);
-    const j = journeys[i];
-    chapter = -1;
-    $('#ji-place').textContent = j.place;
-    $('#ji-a').textContent = j.intro[0];
-    $('#ji-b').textContent = j.intro[1];
-    scramble($('#hud-loc'), j.place, 0.8);
-    const v = $('#view-journey');
-    gsap.set(v, { visibility: 'visible', opacity: 1 });
-    gsap.set('#jintro', { autoAlpha: 1 });
-    gsap.set('#chapter', { autoAlpha: 0 });
-    v.classList.add('is-active');
-    view = 'journey';
-    gsap.timeline({ delay: 0.6 })
-      .from('.jintro__eyebrow', { opacity: 0, y: 10, duration: 0.8 })
-      .from('.jintro__title span', { opacity: 0, yPercent: 40, duration: 1.1, stagger: 0.12, ease: 'expo.out' }, 0.1)
-      .from('.jintro__tag, #journey-start', { opacity: 0, duration: 0.8, stagger: 0.1 }, 0.6)
-      .fromTo('#journey-exit', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, 0.8);
-  });
+
+  const jw = world.openJourney(i);
+  jw.setEntry();
+  const j = journeys[i];
+  chapter = -1;
+  $('#ji-place').textContent = j.place;
+  $('#ji-a').textContent = j.intro[0];
+  $('#ji-b').textContent = j.intro[1];
+  const v = $('#view-journey');
+  gsap.set('#jintro', { autoAlpha: 1, y: 0 });
+  gsap.set('#chapter', { autoAlpha: 0 });
+
+  // push into the currents while the reef washes in through a liquid wipe
+  const p0 = jw.poses[0];
+  gsap.timeline({ onComplete: () => { world.state.z = 0; } })
+    .to(hub, { opacity: 0, duration: 0.6 })
+    .set(hub, { visibility: 'hidden' })
+    .to(world.state, { z: -38, duration: 2.8, ease: 'power2.in' }, 0)
+    .to(world.state, { boost: 0.7, duration: 1.4, ease: 'power2.in' }, 0.3)
+    .to(world.state, { boost: 0, duration: 1.4, ease: 'power2.out' }, 1.7)
+    .to(world, { mix: 1, duration: 2.2, ease: 'power2.inOut' }, 0.9)
+    .to(jw.pose, {
+      px: p0.cam[0], py: p0.cam[1], pz: p0.cam[2], tx: p0.tgt[0], ty: p0.tgt[1], tz: p0.tgt[2],
+      duration: 3.6, ease: 'power3.out',
+    }, 0.9)
+    .add(() => {
+      scramble($('#hud-loc'), j.place, 0.8);
+      gsap.set(v, { visibility: 'visible', opacity: 1 });
+      v.classList.add('is-active');
+      view = 'journey';
+    }, 2.4)
+    .from('.jintro__eyebrow', { opacity: 0, y: 10, duration: 0.8 }, 2.5)
+    .from('.jintro__title span', { opacity: 0, yPercent: 40, duration: 1.1, stagger: 0.12, ease: 'expo.out' }, 2.6)
+    .from('.jintro__tag, #journey-start', { opacity: 0, duration: 0.8, stagger: 0.1 }, 3.1)
+    .fromTo('#journey-exit', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6 }, 3.3);
 }
 
 function goChapter(c) {
@@ -465,18 +481,29 @@ function exitJourney() {
   spotOn = false;
   const v = $('#view-journey');
   v.classList.remove('is-active');
-  veil(() => {
-    gsap.set([v, spot, '#journey-exit', '#chapter'], { autoAlpha: 0 });
-    gsap.set(v, { visibility: 'hidden' });
-    world.closeJourney();
-    chapter = -1;
-    busy = false;
-    scramble($('#hud-loc'), 'South Pacific', 0.8);
-    const hub = $('#view-journeys');
-    gsap.set(hub, { visibility: 'visible', opacity: 1 });
-    hub.classList.add('is-active');
-    view = 'journeys';
-  });
+  const jw = world.journey;
+  const hub = $('#view-journeys');
+  world.state.z = -38;
+  gsap.timeline({
+    onComplete: () => {
+      world.closeJourney();
+      world.mix = 0;
+      chapter = -1;
+      busy = false;
+      hub.classList.add('is-active');
+      view = 'journeys';
+    },
+  })
+    .to([v, spot, '#journey-exit', '#chapter'], { autoAlpha: 0, duration: 0.5 })
+    .set(v, { visibility: 'hidden' })
+    .to(jw.pose, { py: '+=8', pz: '+=26', ty: '+=4', duration: 2.4, ease: 'power2.in' }, 0)
+    .to(world.state, { boost: 0.6, duration: 1.2, ease: 'power2.in' }, 0.2)
+    .to(world.state, { boost: 0, duration: 1.4, ease: 'power2.out' }, 1.4)
+    .to(world, { mix: 0, duration: 2, ease: 'power2.inOut' }, 0.6)
+    .to(world.state, { z: 0, duration: 3, ease: 'power3.out' }, 0.8)
+    .add(() => scramble($('#hud-loc'), 'South Pacific', 0.8), 1.4)
+    .set(hub, { visibility: 'visible' }, 2.2)
+    .fromTo(hub, { opacity: 0 }, { opacity: 1, duration: 0.8 }, 2.2);
 }
 
 $('#journey-start').addEventListener('click', () => goChapter(0));
