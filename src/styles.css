@@ -235,7 +235,7 @@ h1, h2, h3, h4, p { margin: 0; font-weight: 500; }
 .journey:hover .journey__icon { transform: scale(1.08); box-shadow: 0 0 0 1px rgba(143, 227, 255, .6), 0 0 0 12px rgba(143, 227, 255, .08); }
 .journey h3 { font: 400 clamp(22px, 2.2vw, 30px)/1 var(--title); text-transform: uppercase; letter-spacing: .02em; color: var(--aqua); margin-bottom: 16px; }
 
-.hint { position: absolute; bottom: 46px; left: 50%; translate: -50% 0; font: 500 10px/1.6 var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--aqua); }
+.hint { pointer-events: none; position: absolute; bottom: 46px; left: 50%; translate: -50% 0; font: 500 10px/1.6 var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--aqua); }
 .hint svg { display: block; width: 32px; height: 32px; margin: 0 auto 6px; fill: none; stroke: var(--ice); }
 .hint svg path { fill: var(--ice); stroke: none; }
 
@@ -350,6 +350,9 @@ h1, h2, h3, h4, p { margin: 0; font-weight: 500; }
   .modal__grid { grid-template-columns: 1fr; overflow: auto; gap: 20px; }
   .modal__orb { display: none; }
   .modal__body { overflow: visible; }
+}
+@media (max-height: 760px) {
+  .hint { display: none; }
 }
 @media (max-width: 900px) and (max-height: 760px) {
   .jhead__copy { display: none; }

@@ -14,6 +14,8 @@ const sound = new Sound();
 let view = 'loader';
 const discovered = new Set();
 
+// keep animations on real time even when frames are slow
+gsap.ticker.lagSmoothing(0);
 gsap.ticker.add(() => world.render());
 initCursor($('#cursor'));
 bindScrambleHover();
